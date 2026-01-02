@@ -1,0 +1,9 @@
+Name: NetLogic
+Type: NetLogicCategoryFolder
+Children:
+- Name: FunctionKeyNetLogic
+  Type: NetLogic
+  Children:
+  - Name: LastFunctionKeyPressed
+    Type: BaseDataVariableType
+    DataType: String
