@@ -4,6 +4,17 @@ Children:
 - Name: FunctionKeyNetLogic
   Type: NetLogic
   Children:
-  - Name: LastFunctionKeyPressed
+  - Name: CapturedText
     Type: BaseDataVariableType
     DataType: String
+  - Name: Capturing
+    Type: BaseDataVariableType
+    DataType: Boolean
+  - Name: TargetFunctionKey
+    Type: BaseDataVariableType
+    DataType: String
+    Value: "F1"
+  - Name: TerminatingKey
+    Type: BaseDataVariableType
+    DataType: String
+    Value: "0x0D"

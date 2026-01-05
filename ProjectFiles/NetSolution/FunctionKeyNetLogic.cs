@@ -43,21 +43,91 @@ public class FunctionKeyNetLogic : BaseNetLogic
         { 0x78, "F9" }, { 0x79, "F10" }, { 0x7A, "F11" }, { 0x7B, "F12" }
     };
 
+    // Map function key names to virtual key codes
+    private static readonly Dictionary<string, int> FunctionKeyNameToVK = new Dictionary<string, int>
+    {
+        { "F1", 0x70 }, { "F2", 0x71 }, { "F3", 0x72 }, { "F4", 0x73 },
+        { "F5", 0x74 }, { "F6", 0x75 }, { "F7", 0x76 }, { "F8", 0x77 },
+        { "F9", 0x78 }, { "F10", 0x79 }, { "F11", 0x7A }, { "F12", 0x7B }
+    };
+
+    // Configurable variables
+    private string targetFunctionKey;  // Which function key to listen for
+    private int terminatingKeyVK;      // VK_RETURN (Enter key) by default
+    
     private LowLevelKeyboardProc keyboardHookCallback;
     private IntPtr hookId = IntPtr.Zero;
     private bool isWindows;
-    private System.Collections.Concurrent.ConcurrentQueue<string> keyPressQueue;
+    private System.Collections.Concurrent.ConcurrentQueue<KeyPressInfo> keyPressQueue;
     private PeriodicTask processingTask;
+    
+    // Text capture state
+    private bool isCapturingText = false;
+    private IUAVariable capturing;
+    private System.Text.StringBuilder capturedText;
+
+    // Helper class to store key press information
+    private class KeyPressInfo
+    {
+        public int VirtualKeyCode { get; set; }
+        public string KeyName { get; set; }
+        public char KeyChar { get; set; }
+    }
 
     public override void Start()
     {
+        capturing = LogicObject.GetVariable("Capturing");
+        
+        // Init the target function key with validation
+        try
+        {
+            string targetKeyStr = LogicObject.GetVariable("TargetFunctionKey").Value;
+            if (string.IsNullOrWhiteSpace(targetKeyStr))
+            {
+                throw new ArgumentException("TargetFunctionKey is empty or null");
+            }
+            
+            // Validate that it's a valid function key (F1-F12)
+            if (!FunctionKeyNameToVK.ContainsKey(targetKeyStr))
+            {
+                throw new ArgumentException($"'{targetKeyStr}' is not a valid function key. Must be F1-F12.");
+            }
+            
+            targetFunctionKey = targetKeyStr;
+            Log.Info("FunctionKeyNetLogic", $"Target function key set to: {targetFunctionKey}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("FunctionKeyNetLogic", $"Failed to read TargetFunctionKey: {ex.Message}. Using default (F1)");
+            targetFunctionKey = "F1"; // Default to F1
+        }
+        
+        // Parse terminating key from hex string
+        string terminatingKeyStr = LogicObject.GetVariable("TerminatingKey").Value;
+        try
+        {
+            // Remove "0x" prefix if present and parse as hexadecimal
+            if (terminatingKeyStr.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+            {
+                terminatingKeyStr = terminatingKeyStr.Substring(2);
+            }
+            terminatingKeyVK = Convert.ToInt32(terminatingKeyStr, 16);
+            Log.Info("FunctionKeyNetLogic", $"Terminating key set to: 0x{terminatingKeyVK:X}");
+        }
+        catch (Exception ex)
+        {
+            Log.Error("FunctionKeyNetLogic", $"Failed to parse TerminatingKey value '{terminatingKeyStr}': {ex.Message}. Using default (Enter - 0x0D)");
+            terminatingKeyVK = 0x0D; // Default to Enter key
+        }
+        
         // Detect platform
         isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
         
         if (isWindows)
         {
             // Initialize queue for thread-safe key press handling
-            keyPressQueue = new System.Collections.Concurrent.ConcurrentQueue<string>();
+            keyPressQueue = new System.Collections.Concurrent.ConcurrentQueue<KeyPressInfo>();
+            capturedText = new System.Text.StringBuilder();
             
             // Store the callback as a field to prevent garbage collection
             keyboardHookCallback = HookCallback;
@@ -115,34 +185,81 @@ public class FunctionKeyNetLogic : BaseNetLogic
             // A key was pressed - extract the virtual key code
             int vkCode = Marshal.ReadInt32(lParam);
             
-            // Check if this key is one of our function keys (fast dictionary lookup)
-            if (FunctionKeys.ContainsKey(vkCode))
+            // Create key press info
+            var keyInfo = new KeyPressInfo
             {
-                // Queue for processing on another thread - DO NOT process here
-                // This keeps the hook callback fast and prevents system keyboard lag
-                keyPressQueue.Enqueue(FunctionKeys[vkCode]);
-            }
+                VirtualKeyCode = vkCode,
+                KeyName = FunctionKeys.ContainsKey(vkCode) ? FunctionKeys[vkCode] : null,
+                KeyChar = GetCharFromVirtualKey(vkCode)
+            };
+            
+            // Queue for processing on another thread
+            keyPressQueue.Enqueue(keyInfo);
         }
         
         // Always call the next hook in the chain immediately
         return CallNextHookEx(hookId, nCode, wParam, lParam);
     }
     
+    // Convert virtual key code to character
+    private char GetCharFromVirtualKey(int vkCode)
+    {
+        // For alphanumeric and special characters
+        if ((vkCode >= 0x30 && vkCode <= 0x39) || // 0-9
+            (vkCode >= 0x41 && vkCode <= 0x5A) || // A-Z
+            (vkCode >= 0x60 && vkCode <= 0x69))   // Numpad 0-9
+        {
+            return (char)vkCode;
+        }
+        
+        // Common special characters
+        switch (vkCode)
+        {
+            case 0x20: return ' ';  // Space
+            case 0xBA: return ';';  // OEM_1
+            case 0xBB: return '=';  // OEM_PLUS
+            case 0xBC: return ',';  // OEM_COMMA
+            case 0xBD: return '-';  // OEM_MINUS
+            case 0xBE: return '.';  // OEM_PERIOD
+            case 0xBF: return '/';  // OEM_2
+            case 0xC0: return '`';  // OEM_3
+            default: return '\0';
+        }
+    }
+    
     // Process queued key presses on a separate thread (not the hook callback)
     private void ProcessKeyPressQueue()
     {
-        while (keyPressQueue.TryDequeue(out string keyName))
+        while (keyPressQueue.TryDequeue(out KeyPressInfo keyInfo))
         {
-            // Now safe to do logging and variable updates off the hook thread
-            LogFunctionKeyPress(keyName);
+            // Check if this is our target function key to start capture
+            if (!isCapturingText && keyInfo.KeyName == targetFunctionKey)
+            {
+                isCapturingText = true;
+                capturing.Value = true;
+                capturedText.Clear();
+                Log.Info("FunctionKeyNetLogic", $"Started text capture after {targetFunctionKey} press");
+            }
+            // Check if this is the terminating key to end capture
+            else if (isCapturingText && keyInfo.VirtualKeyCode == terminatingKeyVK)
+            {
+                isCapturingText = false;
+                capturing.Value = false;
+                string finalText = capturedText.ToString();
+                Log.Info("FunctionKeyNetLogic", $"Text capture complete: {finalText}");
+                
+                // Store captured text in a variable
+                var capturedTextVariable = LogicObject.GetVariable("CapturedText");
+                if (capturedTextVariable != null)
+                {
+                    capturedTextVariable.Value = finalText;
+                }
+            }
+            // If we're capturing, add the character to our buffer
+            else if (isCapturingText && keyInfo.KeyChar != '\0')
+            {
+                capturedText.Append(keyInfo.KeyChar);
+            }
         }
     }
-
-    private void LogFunctionKeyPress(string keyName)
-    {
-        Log.Info("FunctionKeyNetLogic", $"Function key pressed: {keyName}");
-        var lastFunctionKeyPressed = LogicObject.GetVariable("LastFunctionKeyPressed");
-        lastFunctionKeyPressed.Value = keyName;
-    }
-
 }

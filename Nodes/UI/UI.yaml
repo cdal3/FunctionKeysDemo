@@ -245,31 +245,106 @@ Children:
       Type: DynamicLink
       DataType: NodePath
       Value: "/Objects/FunctionKeysDemo@BrowseName"
-  - Name: Label1
-    Type: Label
+  - Name: VerticalLayout1
+    Type: ColumnLayout
     Children:
-    - Name: Text
-      Type: BaseDataVariableType
-      DataType: LocalizedText
+    - Name: Width
+      Type: BaseVariableType
+      DataType: Size
+      ModellingRule: Optional
+      Value: 50.0
+    - Name: Height
+      Type: BaseVariableType
+      DataType: Size
+      ModellingRule: Optional
+      Value: 50.0
+    - Name: HorizontalAlignment
+      Type: BaseVariableType
+      DataType: HorizontalAlignment
+      ModellingRule: Optional
+      Value: 3
+    - Name: VerticalAlignment
+      Type: BaseVariableType
+      DataType: VerticalAlignment
+      ModellingRule: Optional
+      Value: 3
+    - Name: HorizontalLayout1
+      Type: RowLayout
       Children:
-      - Name: StringFormatter1
-        Type: StringFormatter
+      - Name: Width
+        Type: BaseVariableType
+        DataType: Size
+        ModellingRule: Optional
+        Value: 50.0
+      - Name: Height
+        Type: BaseVariableType
+        DataType: Size
+        ModellingRule: Optional
+        Value: -1.0
+      - Name: HorizontalAlignment
+        Type: BaseVariableType
+        DataType: HorizontalAlignment
+        ModellingRule: Optional
+        Value: 3
+      - Name: Label1
+        Type: Label
         Children:
-        - Name: Format
+        - Name: Text
           Type: BaseDataVariableType
           DataType: LocalizedText
-          ReferenceType: HasParameter
           ModellingRule: Optional
-          Value: {"LocaleId":"en-US","Text":"Last Function Key Pressed: {0}"}
-        - Name: ns=2;Source0
+          Value: {"LocaleId":"en-US","Text":"Capturing:"}
+        - Name: FontSize
           Type: BaseDataVariableType
-          DataType: BaseDataType
-          ReferenceType: HasSource
+          DataType: Size
+          ModellingRule: Optional
+          Value: 32.0
+        - Name: VerticalAlignment
+          Type: BaseVariableType
+          DataType: VerticalAlignment
+          ModellingRule: Optional
+          Value: 2
+      - Name: HorizontalGap
+        Type: BaseDataVariableType
+        DataType: Size
+        ModellingRule: Optional
+        Value: 8.0
+      - Name: LED1
+        Type: Led
+        Children:
+        - Name: Active
+          Type: BaseDataVariableType
+          DataType: Boolean
           Children:
           - Name: DynamicLink
             Type: DynamicLink
             DataType: NodePath
-            Value: "/Objects/FunctionKeysDemo/NetLogic/FunctionKeyNetLogic/LastFunctionKeyPressed"
+            Value: "/Objects/FunctionKeysDemo/NetLogic/FunctionKeyNetLogic/Capturing"
+        - Name: Width
+          Type: BaseVariableType
+          DataType: Size
+          ModellingRule: Optional
+          Value: 32.0
+        - Name: Height
+          Type: BaseVariableType
+          DataType: Size
+          ModellingRule: Optional
+          Value: 32.0
+        - Name: VerticalAlignment
+          Type: BaseVariableType
+          DataType: VerticalAlignment
+          ModellingRule: Optional
+          Value: 2
+        - Name: Color
+          Type: BaseDataVariableType
+          DataType: Color
+          ModellingRule: Optional
+          Value: "#32cd32"
+    - Name: VerticalGap
+      Type: BaseDataVariableType
+      DataType: Size
+      ModellingRule: Optional
+      Value: 8.0
     - Name: LeftMargin
       Type: BaseVariableType
       DataType: Size
@@ -280,10 +355,57 @@ Children:
       DataType: Size
       ModellingRule: Optional
       Value: 8.0
-    - Name: FontSize
-      Type: BaseDataVariableType
+    - Name: RightMargin
+      Type: BaseVariableType
       DataType: Size
       ModellingRule: Optional
-      Value: 32.0
+      Value: 8.0
+    - Name: BottomMargin
+      Type: BaseVariableType
+      DataType: Size
+      ModellingRule: Optional
+      Value: 8.0
+    - Name: Label1
+      Type: Label
+      Children:
+      - Name: Text
+        Type: BaseDataVariableType
+        DataType: LocalizedText
+        Children:
+        - Name: StringFormatter1
+          Type: StringFormatter
+          Children:
+          - Name: Format
+            Type: BaseDataVariableType
+            DataType: LocalizedText
+            ReferenceType: HasParameter
+            ModellingRule: Optional
+            Value: {"LocaleId":"en-US","Text":"Captured Text: {0}"}
+          - Name: ns=2;Source0
+            Type: BaseDataVariableType
+            DataType: BaseDataType
+            ReferenceType: HasSource
+            Children:
+            - Name: DynamicLink
+              Type: DynamicLink
+              DataType: NodePath
+              Value: "/Objects/FunctionKeysDemo/NetLogic/FunctionKeyNetLogic/CapturedText"
+      - Name: LeftMargin
+        Type: BaseVariableType
+        DataType: Size
+        ModellingRule: Optional
+      - Name: TopMargin
+        Type: BaseVariableType
+        DataType: Size
+        ModellingRule: Optional
+      - Name: FontSize
+        Type: BaseDataVariableType
+        DataType: Size
+        ModellingRule: Optional
+        Value: 32.0
+      - Name: BottomMargin
+        Type: BaseVariableType
+        DataType: Size
+        ModellingRule: Optional
 - File: Screens/Screens.yaml
 - File: Keyboards/Keyboards.yaml
